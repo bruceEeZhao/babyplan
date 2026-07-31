@@ -1,0 +1,251 @@
+// BabyPlan — Prisma Schema
+// 领域模型映射（对照 CONTEXT.md）
+// 数据源：PostgreSQL
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================
+// 枚举
+// ============================================================
+
+// 能力领域（活动标签，可多个）
+enum SkillArea {
+  GROSS_MOTOR // 大运动
+  FINE_MOTOR // 精细动作
+  LANGUAGE // 语言
+  COGNITIVE // 认知
+  SOCIAL_EMOTIONAL // 社交情感
+  SENSORY // 感官
+}
+
+// 场景（活动标签，可多个）
+enum Scenario {
+  AT_HOME // 在家
+  OUTDOOR // 户外
+  BATH_TIME // 洗澡时
+  BEDTIME // 睡前
+}
+
+// 所需道具（活动标签，可多个）
+enum Prop {
+  NONE          // 无道具
+  TOWEL         // 毛巾
+  BALL          // 球
+  PICTURE_BOOK  // 绘本/布书
+  RATTLE        // 摇铃
+  CARD          // 黑白卡/闪卡
+  MIRROR        // 镜子
+  BLOCK         // 积木
+  TOY           // 玩具挂件/其他玩具
+  OIL           // 润肤油（抚触）
+  FRUIT         // 水果/食物（感官游戏）
+}
+
+// 里程碑达成状态
+enum MilestoneStatus {
+  NOT_MET // 未达成
+  MET // 已达成
+}
+
+// ============================================================
+// 家庭与父母
+// ============================================================
+
+// 家庭：两名父母及其所有婴儿的绑定单元（绑定在家庭层面）
+model Family {
+  id          String       @id @default(cuid())
+  creatorId   String       @unique // 家庭创建者（先注册并创建宝宝的一方）
+  parents     Parent[]
+  babies      Baby[]
+  inviteCodes InviteCode[]
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+}
+
+// 父母：独立账号，通过邀请码加入家庭（一个家庭最多 2 名）
+model Parent {
+  id                 String              @id @default(cuid())
+  phone              String              @unique // 手机号登录
+  passwordHash       String
+  nickname           String
+  isCreator          Boolean             @default(false)
+  familyId           String? // null = 尚未加入家庭
+  family             Family?             @relation(fields: [familyId], references: [id])
+  completions        Completion[]
+  babyMilestoneMarks BabyMilestoneMark[]
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+
+  @@index([familyId])
+}
+
+// ============================================================
+// 婴儿
+// ============================================================
+
+// 婴儿：一个家庭可添加多个（双胞胎、二胎）
+model Baby {
+  id             String              @id @default(cuid())
+  nickname       String
+  birthDate      DateTime            @db.Date // 出生日期（用于计算月龄）
+  familyId       String
+  family         Family              @relation(fields: [familyId], references: [id])
+  checklists     DailyChecklist[]
+  milestoneMarks BabyMilestoneMark[]
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  @@index([familyId])
+}
+
+// ============================================================
+// 内容库：月龄阶段 / 活动 / 里程碑
+// ============================================================
+
+// 月龄阶段：共 20 个（0-12 月按月，13-36 月按季）
+model MonthStage {
+  id         Int         @id @default(autoincrement())
+  code       String      @unique // 如 "stage-01" ... "stage-20"
+  label      String // 如 "0-1 个月"、"13-15 个月"
+  minMonth   Int // 该阶段起始月龄（含）
+  maxMonth   Int // 该阶段结束月龄（含）
+  sortOrder  Int         @unique
+  activities Activity[] // 该阶段可用的活动（多对多，活动可跨阶段复用）
+  milestones Milestone[] // 该阶段的里程碑
+}
+
+// 活动：图文互动内容，跨月龄阶段复用
+model Activity {
+  id               String       @id @default(cuid())
+  title            String // 标题，如 "俯卧抬头"
+  description      String // 文字说明（怎么做）
+  imageUrl         String // 示意图（开源插图库）
+  dailyTargetCount Int          @default(1) // 每日目标次数，固定不变
+  safetyTip        String? // 安全提示（垫软垫、全程看护）
+  skillAreas       SkillArea[] // 能力领域标签（可多个）
+  scenarios        Scenario[] // 场景标签（可多个）
+  props            Prop[] // 所需道具标签（可多个）
+  stages           MonthStage[] // 适用月龄阶段（多对多）
+  milestones       Milestone[] // 显式关联的里程碑（反向）
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+}
+
+// 里程碑：特定月龄的发育指标，显式声明关联活动与累计次数阈值
+model Milestone {
+  id             String              @id @default(cuid())
+  title          String // 如 "3 个月能俯卧抬头"
+  stageId        Int
+  stage          MonthStage          @relation(fields: [stageId], references: [id])
+  skillArea      SkillArea // 所属能力领域（用于清单加权）
+  thresholdCount Int // 累计完成次数阈值（如 30 次）
+  activities     Activity[] // 显式关联活动：仅这些活动的完成计入累计
+  babyMarks      BabyMilestoneMark[]
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  @@index([stageId])
+}
+
+// ============================================================
+// 每日清单（快照）
+// ============================================================
+
+// 每日清单：每天生成一组推荐活动，生成时固化为快照
+model DailyChecklist {
+  id        String          @id @default(cuid())
+  babyId    String
+  baby      Baby            @relation(fields: [babyId], references: [id])
+  date      DateTime        @db.Date // 清单日期
+  stageCode String // 生成时所属月龄阶段（快照）
+  items     ChecklistItem[]
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+
+  @@unique([babyId, date]) // 每婴儿每日一份
+  @@index([babyId, date])
+}
+
+// 清单条目：快照固化副本（不受活动库后续变更影响）
+model ChecklistItem {
+  id                       String         @id @default(cuid())
+  checklistId              String
+  checklist                DailyChecklist @relation(fields: [checklistId], references: [id])
+  activityId               String? // 弱引用活动 ID（无外键：活动删除后快照仍完整），用于里程碑累计分析
+  // ---- 快照字段（生成时固化） ----
+  titleSnapshot            String
+  descriptionSnapshot      String
+  imageUrlSnapshot         String
+  dailyTargetCountSnapshot Int
+  skillAreasSnapshot       SkillArea[]
+  // ---- 当日状态 ----
+  sortOrder                Int            @default(0)
+  completedCount           Int            @default(0) // 当日已完成次数（≤ 目标次数）
+  replacedFromActivityId   String? // 被替换来源活动（null = 系统推荐）
+  completions              Completion[]
+  createdAt                DateTime       @default(now())
+
+  @@index([checklistId])
+}
+
+// 完成记录：每次打勾的操作记录（区分双人谁完成的）
+model Completion {
+  id        String        @id @default(cuid())
+  parentId  String
+  parent    Parent        @relation(fields: [parentId], references: [id])
+  itemId    String
+  item      ChecklistItem @relation(fields: [itemId], references: [id])
+  count     Int           @default(1) // 本次打勾增加的次数
+  createdAt DateTime      @default(now())
+
+  @@index([itemId])
+  @@index([parentId])
+}
+
+// ============================================================
+// 里程碑达成状态（按婴儿）
+// ============================================================
+
+// 婴儿里程碑状态：父母标记达成情况，累计次数达阈值时 App 建议确认
+model BabyMilestoneMark {
+  id            String          @id @default(cuid())
+  babyId        String
+  baby          Baby            @relation(fields: [babyId], references: [id])
+  milestoneId   String
+  milestone     Milestone       @relation(fields: [milestoneId], references: [id])
+  status        MilestoneStatus @default(NOT_MET)
+  progressCount Int             @default(0) // 累计完成次数（缓存，按关联活动聚合）
+  confirmedAt   DateTime? // 父母确认时间
+  confirmedById String? // 确认人
+  confirmedBy   Parent?         @relation(fields: [confirmedById], references: [id])
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  @@unique([babyId, milestoneId])
+  @@index([babyId])
+}
+
+// ============================================================
+// 邀请码
+// ============================================================
+
+// 邀请码：家庭创建者生成，一次性有效，另一方输入后加入家庭
+model InviteCode {
+  id        String    @id @default(cuid())
+  code      String    @unique // 6 位，如 "A1B2C3"
+  familyId  String
+  family    Family    @relation(fields: [familyId], references: [id])
+  usedById  String? // 使用人（用后即废）
+  usedAt    DateTime?
+  expiresAt DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([familyId])
+}

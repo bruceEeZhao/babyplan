@@ -1,65 +1,155 @@
-import Image from "next/image";
+import { prisma } from "@/lib/prisma";
+import { monthAgeOf } from "@/lib/checklist";
+import { getCurrentBabyId } from "@/lib/current-baby";
+import { requireFamilyContext } from "@/lib/session";
+import { localDateKey, dateKeyToDate } from "@/lib/date";
+import { CompleteButton, ReplacePanel, GenerateButton } from "@/components/checklist-client";
+import { ConfirmMilestoneButton } from "@/components/milestone-client";
 
-export default function Home() {
+export const dynamic = "force-dynamic";
+
+const SKILL_LABELS: Record<string, string> = {
+  GROSS_MOTOR: "大运动",
+  FINE_MOTOR: "精细动作",
+  LANGUAGE: "语言",
+  COGNITIVE: "认知",
+  SOCIAL_EMOTIONAL: "社交情感",
+  SENSORY: "感官",
+};
+
+export default async function TodayPage() {
+  await requireFamilyContext();
+  const babyId = await getCurrentBabyId();
+  if (!babyId) return <p className="text-gray-500">还没有宝宝，请先到「婴儿管理」添加。</p>;
+  const baby = await prisma.baby.findUnique({ where: { id: babyId } });
+  if (!baby) return <p className="text-gray-500">未找到婴儿</p>;
+
+  const monthAge = monthAgeOf(baby.birthDate);
+  const today = dateKeyToDate(localDateKey(new Date()));
+
+  const checklist = await prisma.dailyChecklist.findUnique({
+    where: { babyId_date: { babyId, date: today } },
+    include: { items: { orderBy: { sortOrder: "asc" } } },
+  });
+
+  const stage = await prisma.monthStage.findFirst({
+    where: { minMonth: { lte: monthAge }, maxMonth: { gte: monthAge } },
+    orderBy: { sortOrder: "desc" },
+  });
+
+  // 替换候选：当月龄阶段活动池（排除已在清单中的）
+  const inChecklistIds = (checklist?.items.map((i) => i.activityId).filter(Boolean) ?? []) as string[];
+  const candidates = stage
+    ? await prisma.activity.findMany({
+        where: { stages: { some: { id: stage.id } }, id: { notIn: inChecklistIds } },
+      })
+    : [];
+
+  // 达阈值待确认的里程碑（内存过滤：progressCount >= milestone.thresholdCount）
+  const readyMarks = checklist
+    ? (
+        await prisma.babyMilestoneMark.findMany({
+          where: { babyId, status: "NOT_MET" },
+          include: { milestone: true },
+        })
+      ).filter((m) => m.progressCount >= m.milestone.thresholdCount)
+    : [];
+
+  const totalCompleted = checklist?.items.reduce((s, i) => s + i.completedCount, 0) ?? 0;
+  const totalTarget = checklist?.items.reduce((s, i) => s + i.dailyTargetCountSnapshot, 0) ?? 0;
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <div className="space-y-6">
+      <header className="space-y-1">
+        <h1 className="text-2xl font-bold text-gray-800">
+          {baby.nickname} · 今日清单
+        </h1>
+        <p className="text-sm text-gray-500">
+          月龄 {monthAge} 个月{stage ? ` · ${stage.label} 阶段` : ""} ·{" "}
+          {checklist ? `已完成 ${totalCompleted}/${totalTarget} 次` : "今日清单未生成"}
+        </p>
+      </header>
+
+      {!checklist && (
+        <div className="rounded-2xl border border-dashed border-pink-200 bg-white p-6 text-center">
+          <p className="mb-4 text-sm text-gray-500">今天还没有清单，生成一份吧！</p>
+          <GenerateButton hasChecklist={false} />
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
+      )}
+
+      {checklist && (
+        <>
+          {readyMarks.length > 0 && (
+            <div className="space-y-2">
+              {readyMarks.map((m) => (
+                <div
+                  key={m.id}
+                  className="rounded-2xl border border-green-200 bg-green-50 p-4"
+                >
+                  <p className="text-sm font-medium text-green-800">
+                    🎉 宝宝似乎已能做到「{m.milestone.title}」
+                  </p>
+                  <p className="mt-1 text-xs text-green-700">
+                    累计完成 {m.progressCount}/{m.milestone.thresholdCount} 次，确认后每日推荐将调整该领域活动
+                  </p>
+                  <div className="mt-2">
+                    <ConfirmMilestoneButton markId={m.id} ready />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="space-y-3">
+            {checklist.items.map((item) => {
+              const done = item.completedCount >= item.dailyTargetCountSnapshot;
+              return (
+                <div
+                  key={item.id}
+                  className={`rounded-2xl border bg-white p-4 ${
+                    done ? "border-green-200" : "border-gray-100"
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <h3 className="font-medium text-gray-800">{item.titleSnapshot}</h3>
+                      <p className="mt-0.5 text-sm text-gray-500">{item.descriptionSnapshot}</p>
+                      <div className="mt-2 flex flex-wrap gap-1">
+                        {item.skillAreasSnapshot.map((area) => (
+                          <span
+                            key={area}
+                            className="rounded-full bg-orange-50 px-2 py-0.5 text-xs text-orange-600"
+                          >
+                            {SKILL_LABELS[area] ?? area}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                    <CompleteButton
+                      itemId={item.id}
+                      completed={item.completedCount}
+                      target={item.dailyTargetCountSnapshot}
+                    />
+                  </div>
+                  <div className="mt-3 border-t border-gray-50 pt-2">
+                    <ReplacePanel
+                      itemId={item.id}
+                      currentTitle={item.titleSnapshot}
+                      candidates={candidates.map((c) => ({
+                        id: c.id,
+                        title: c.title,
+                        dailyTargetCount: c.dailyTargetCount,
+                      }))}
+                    />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          <GenerateButton hasChecklist />
+        </>
+      )}
     </div>
   );
 }
