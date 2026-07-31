@@ -3,6 +3,7 @@ import { monthAgeOf } from "@/lib/checklist";
 import { getCurrentBabyId } from "@/lib/current-baby";
 import { requireFamilyContext } from "@/lib/session";
 import { ConfirmMilestoneButton } from "@/components/milestone-client";
+import { GrowthOverview } from "@/components/growth-overview";
 
 export const dynamic = "force-dynamic";
 
@@ -52,6 +53,8 @@ export default async function MilestonesPage() {
           月龄 {monthAge} 个月 · 已达成 {metCount}/{marks.length}
         </p>
       </header>
+
+      <GrowthOverview marks={marks} />
 
       <div className="h-2 overflow-hidden rounded-full bg-gray-100">
         <div
