@@ -41,7 +41,7 @@ npm run db:migrate
 npm run db:seed
 
 # 4. 启动开发服务器
-npm run dev        # 端口 3000（被占用用 PORT=3100）
+npm run dev        # 固定端口 3100
 ```
 
 ### 演示账号

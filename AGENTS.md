@@ -25,6 +25,8 @@ This version has breaking changes — APIs, conventions, and file structure may 
 3. **快照机制**：`DailyChecklist`/`ChecklistItem` 冗余复制活动字段（title/description/image/次数/标签），`activityId` 为弱引用（无外键）。修改内容库不影响历史记录——**禁止改成实时关联**。
 4. **`MonthStage.id` 是 Int**（非字符串），查询/Map key 注意类型。
 5. **npm registry**：本项目 lock 用官方 registry 生成；若改依赖后 `npm ci` 报 `Missing: @emnapi/*`，是 npmmirror 镜像缺陷，需 `rm -rf node_modules package-lock.json && npm_config_registry=https://registry.npmjs.org npm install` 重建。
+6. **局域网访问 dev HMR**：Next 16 默认阻止非 localhost 源访问 dev 资源（HMR WebSocket 报 `Blocked cross-origin request`）。需在 `next.config.ts` 的 `allowedDevOrigins` 加入局域网 IP（如 `["192.168.1.4"]`），改 IP 后同步更新。
+7. **dev 缓存损坏**：多个 dev server 进程共用 `.next` 会报 `Could not find the module ... in the React Client Manifest`（GET / 500）。修复：杀掉所有 dev 进程 → `rm -rf .next` → 重启。不要同时跑多个 dev server。
 
 ## 目录结构
 
@@ -67,7 +69,7 @@ docs/                     # CONTEXT.md + adr/ + 内容参考文献 + 部署
 ## 常用命令
 
 ```bash
-npm run dev              # 开发（端口 3000；被占用用 PORT=3100）
+npm run dev              # 开发（固定端口 3100，3000 被其他项目占用）
 npm run build / start    # 生产构建/启动
 npm run db:seed          # 重置内容库 + 演示数据（幂等）
 npm run db:migrate       # 开发迁移
