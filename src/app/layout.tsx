@@ -50,6 +50,12 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
                       历史
                     </Link>
                     <Link
+                      href="/stats"
+                      className="rounded-full px-3 py-1.5 text-sm text-gray-500 transition hover:bg-orange-50 hover:text-pink-500"
+                    >
+                      统计
+                    </Link>
+                    <Link
                       href="/onboarding"
                       className="rounded-full px-3 py-1.5 text-sm text-gray-500 transition hover:bg-orange-50 hover:text-pink-500"
                     >
