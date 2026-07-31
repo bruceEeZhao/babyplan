@@ -111,18 +111,26 @@ export default async function TodayPage() {
                   }`}
                 >
                   <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <h3 className="font-medium text-gray-800">{item.titleSnapshot}</h3>
-                      <p className="mt-0.5 text-sm text-gray-500">{item.descriptionSnapshot}</p>
-                      <div className="mt-2 flex flex-wrap gap-1">
-                        {item.skillAreasSnapshot.map((area) => (
-                          <span
-                            key={area}
-                            className="rounded-full bg-orange-50 px-2 py-0.5 text-xs text-orange-600"
-                          >
-                            {SKILL_LABELS[area] ?? area}
-                          </span>
-                        ))}
+                    <div className="flex min-w-0 gap-3">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={item.imageUrlSnapshot}
+                        alt={item.titleSnapshot}
+                        className="h-12 w-12 shrink-0 rounded-xl bg-orange-50 p-2 object-contain"
+                      />
+                      <div className="min-w-0">
+                        <h3 className="font-medium text-gray-800">{item.titleSnapshot}</h3>
+                        <p className="mt-0.5 text-sm text-gray-500">{item.descriptionSnapshot}</p>
+                        <div className="mt-2 flex flex-wrap gap-1">
+                          {item.skillAreasSnapshot.map((area) => (
+                            <span
+                              key={area}
+                              className="rounded-full bg-orange-50 px-2 py-0.5 text-xs text-orange-600"
+                            >
+                              {SKILL_LABELS[area] ?? area}
+                            </span>
+                          ))}
+                        </div>
                       </div>
                     </div>
                     <CompleteButton

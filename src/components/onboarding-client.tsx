@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
-import { createFamily, generateInviteCode, joinFamilyByCode } from "@/app/auth-actions";
+import { createFamily, generateInviteCode, joinFamilyByCode, leaveFamily, changePassword } from "@/app/auth-actions";
 
 type ActionResult = { ok: boolean; message: string; code?: string };
 
@@ -79,5 +79,72 @@ export function RegenerateCodeButton() {
         </p>
       )}
     </div>
+  );
+}
+
+export function LeaveFamilyButton() {
+  const [state, action, pending] = useActionState<ActionResult | null, FormData>(
+    () => leaveFamily(),
+    null
+  );
+  return (
+    <div className="rounded-2xl border border-red-100 bg-red-50/50 p-4">
+      <h2 className="mb-1 font-medium text-red-700">退出家庭</h2>
+      <p className="mb-3 text-sm text-red-600/70">
+        退出后将失去家庭数据的访问权限，你的账号与个人记录会保留。此操作不可撤销。
+      </p>
+      <form action={action}>
+        <button
+          type="submit"
+          disabled={pending}
+          className="rounded-lg border border-red-200 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-100 disabled:opacity-50"
+        >
+          {pending ? "退出中..." : "退出家庭"}
+        </button>
+      </form>
+      {state?.message && (
+        <p className={`mt-2 text-sm ${state.ok ? "text-green-600" : "text-amber-600"}`}>{state.message}</p>
+      )}
+    </div>
+  );
+}
+
+export function ChangePasswordForm() {
+  const [state, action, pending] = useActionState<ActionResult | null, FormData>(
+    (_prev, formData) => changePassword(formData),
+    null
+  );
+  return (
+    <form action={action} className="space-y-3">
+      <div>
+        <label className="mb-1 block text-xs text-gray-500">旧密码</label>
+        <input
+          name="oldPassword"
+          type="password"
+          required
+          className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
+        />
+      </div>
+      <div>
+        <label className="mb-1 block text-xs text-gray-500">新密码（至少 6 位）</label>
+        <input
+          name="newPassword"
+          type="password"
+          required
+          minLength={6}
+          className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
+        />
+      </div>
+      {state && (
+        <p className={`text-sm ${state.ok ? "text-green-600" : "text-amber-600"}`}>{state.message}</p>
+      )}
+      <button
+        type="submit"
+        disabled={pending}
+        className="w-full rounded-lg bg-gray-800 py-2.5 font-medium text-white hover:bg-gray-900 disabled:opacity-50"
+      >
+        {pending ? "修改中..." : "修改密码"}
+      </button>
+    </form>
   );
 }

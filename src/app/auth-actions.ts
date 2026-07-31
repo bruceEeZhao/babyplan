@@ -101,6 +101,49 @@ export async function requireLogin() {
   return parentId;
 }
 
+/** 退出家庭（解绑）：失去家庭数据访问权，账号与个人数据保留 */
+export async function leaveFamily(): Promise<{ ok: boolean; message: string }> {
+  const parentId = await getCurrentParentId();
+  if (!parentId) return { ok: false, message: "请先登录" };
+
+  const me = await prisma.parent.findUnique({ where: { id: parentId } });
+  if (!me) return { ok: false, message: "账号不存在" };
+  if (!me.familyId) return { ok: false, message: "你不在任何家庭中" };
+
+  await prisma.parent.update({
+    where: { id: parentId },
+    data: { familyId: null, isCreator: false },
+  });
+  revalidatePath("/onboarding");
+  revalidatePath("/babies");
+  revalidatePath("/");
+  return { ok: true, message: "已退出家庭，账号与个人数据已保留" };
+}
+
+/** 修改密码：验证旧密码后更新 */
+export async function changePassword(formData: FormData): Promise<{ ok: boolean; message: string }> {
+  const parentId = await getCurrentParentId();
+  if (!parentId) return { ok: false, message: "请先登录" };
+
+  const oldPassword = String(formData.get("oldPassword") ?? "");
+  const newPassword = String(formData.get("newPassword") ?? "");
+  if (oldPassword.length < 6) return { ok: false, message: "请输入旧密码" };
+  if (newPassword.length < 6) return { ok: false, message: "新密码至少 6 位" };
+  if (oldPassword === newPassword) return { ok: false, message: "新密码不能与旧密码相同" };
+
+  const me = await prisma.parent.findUnique({ where: { id: parentId } });
+  if (!me) return { ok: false, message: "账号不存在" };
+  const ok = await bcrypt.compare(oldPassword, me.passwordHash);
+  if (!ok) return { ok: false, message: "旧密码不正确" };
+
+  const passwordHash = await bcrypt.hash(newPassword, 10);
+  await prisma.parent.update({
+    where: { id: parentId },
+    data: { passwordHash },
+  });
+  return { ok: true, message: "密码修改成功" };
+}
+
 /** 生成邀请码记录（6 位大写字母数字，7 天有效） */
 async function createInviteCodeRecord(familyId: string): Promise<string> {
   const code = randomCode(6);

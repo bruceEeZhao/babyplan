@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { CreateFamilyButton, JoinFamilyForm, RegenerateCodeButton } from "@/components/onboarding-client";
+import { CreateFamilyButton, JoinFamilyForm, RegenerateCodeButton, LeaveFamilyButton, ChangePasswordForm } from "@/components/onboarding-client";
 
 export const metadata: Metadata = { title: "家庭设置 — BabyPlan" };
 
@@ -76,6 +76,13 @@ export default async function OnboardingPage() {
           ✅ 已与「{partner.nickname}」绑定，双方数据实时同步
         </p>
       )}
+
+      <LeaveFamilyButton />
+
+      <section className="rounded-2xl border border-gray-100 bg-white p-5">
+        <h2 className="mb-3 font-medium text-gray-800">修改密码</h2>
+        <ChangePasswordForm />
+      </section>
     </div>
   );
 }
