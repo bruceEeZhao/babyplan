@@ -24,6 +24,10 @@ export default async function MilestonesPage() {
   if (!baby) return <p className="text-gray-500">未找到婴儿</p>;
 
   const monthAge = monthAgeOf(baby.birthDate);
+  const currentStage = await prisma.monthStage.findFirst({
+    where: { minMonth: { lte: monthAge }, maxMonth: { gte: monthAge } },
+    orderBy: { sortOrder: "desc" },
+  });
 
   const marks = await prisma.babyMilestoneMark.findMany({
     where: { babyId },
@@ -45,6 +49,49 @@ export default async function MilestonesPage() {
 
   const metCount = marks.filter((m) => m.status === "MET").length;
 
+  const renderMilestones = (stageMarks: typeof marks) =>
+    stageMarks.map((m) => {
+      const ready = m.status === "NOT_MET" && m.progressCount >= m.milestone.thresholdCount;
+      const pct = Math.min(100, Math.round((m.progressCount / m.milestone.thresholdCount) * 100));
+      return (
+        <div
+          key={m.id}
+          className={`rounded-2xl border p-4 ${
+            m.status === "MET" ? "border-green-200 bg-green-50" : "border-gray-100 bg-white"
+          }`}
+        >
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <h3 className="font-medium text-gray-800">{m.milestone.title}</h3>
+              <p className="mt-0.5 text-xs text-gray-400">
+                {SKILL_LABELS[m.milestone.skillArea] ?? m.milestone.skillArea}
+                {m.status === "MET"
+                  ? ` · 已于 ${m.confirmedAt ? new Date(m.confirmedAt).toLocaleDateString("zh-CN") : ""} 确认`
+                  : ` · 累计 ${m.progressCount}/${m.milestone.thresholdCount} 次`}
+              </p>
+            </div>
+            {m.status === "MET" ? (
+              <span className="rounded-full bg-green-100 px-3 py-1 text-sm font-medium text-green-700">
+                ✓ 已达成
+              </span>
+            ) : (
+              <ConfirmMilestoneButton markId={m.id} ready={ready} />
+            )}
+          </div>
+          {m.status !== "MET" && (
+            <div className="mt-3">
+              <div className="h-1.5 overflow-hidden rounded-full bg-gray-100">
+                <div
+                  className={`h-full rounded-full ${ready ? "bg-green-400" : "bg-orange-300"}`}
+                  style={{ width: `${pct}%` }}
+                />
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    });
+
   return (
     <div className="space-y-6">
       <header className="space-y-1">
@@ -65,51 +112,28 @@ export default async function MilestonesPage() {
 
       {stages.map((s) => {
         const stageMarks = marksByStage.get(s.id) ?? [];
+        const stageMet = stageMarks.filter((m) => m.status === "MET").length;
+        const isCurrent = currentStage?.id === s.id;
+
+        if (isCurrent) {
+          return (
+            <section key={s.id} className="space-y-2">
+              <h2 className="text-sm font-medium text-pink-500">当前阶段 · {s.label}</h2>
+              {renderMilestones(stageMarks)}
+            </section>
+          );
+        }
+        // 历史阶段折叠展示
         return (
-          <section key={s.id} className="space-y-2">
-            <h2 className="text-sm font-medium text-gray-400">{s.label} 阶段</h2>
-            {stageMarks.map((m) => {
-              const ready = m.status === "NOT_MET" && m.progressCount >= m.milestone.thresholdCount;
-              const pct = Math.min(100, Math.round((m.progressCount / m.milestone.thresholdCount) * 100));
-              return (
-                <div
-                  key={m.id}
-                  className={`rounded-2xl border p-4 ${
-                    m.status === "MET" ? "border-green-200 bg-green-50" : "border-gray-100 bg-white"
-                  }`}
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <h3 className="font-medium text-gray-800">{m.milestone.title}</h3>
-                      <p className="mt-0.5 text-xs text-gray-400">
-                        {SKILL_LABELS[m.milestone.skillArea] ?? m.milestone.skillArea}
-                        {m.status === "MET"
-                          ? ` · 已于 ${m.confirmedAt ? new Date(m.confirmedAt).toLocaleDateString("zh-CN") : ""} 确认`
-                          : ` · 累计 ${m.progressCount}/${m.milestone.thresholdCount} 次`}
-                      </p>
-                    </div>
-                    {m.status === "MET" ? (
-                      <span className="rounded-full bg-green-100 px-3 py-1 text-sm font-medium text-green-700">
-                        ✓ 已达成
-                      </span>
-                    ) : (
-                      <ConfirmMilestoneButton markId={m.id} ready={ready} />
-                    )}
-                  </div>
-                  {m.status !== "MET" && (
-                    <div className="mt-3">
-                      <div className="h-1.5 overflow-hidden rounded-full bg-gray-100">
-                        <div
-                          className={`h-full rounded-full ${ready ? "bg-green-400" : "bg-orange-300"}`}
-                          style={{ width: `${pct}%` }}
-                        />
-                      </div>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </section>
+          <details key={s.id} className="group rounded-2xl border border-gray-100 bg-white">
+            <summary className="flex cursor-pointer list-none items-center justify-between px-4 py-3 text-sm font-medium text-gray-500">
+              <span>
+                {s.label} 阶段 · 已达成 {stageMet}/{stageMarks.length}
+              </span>
+              <span className="text-gray-300 transition group-open:rotate-90">›</span>
+            </summary>
+            <div className="space-y-2 px-4 pb-4">{renderMilestones(stageMarks)}</div>
+          </details>
         );
       })}
     </div>
