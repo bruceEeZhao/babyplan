@@ -31,6 +31,23 @@ export function AddBabyForm() {
           className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
         />
       </div>
+      <div>
+        <label className="mb-1 block text-xs text-gray-500">性别</label>
+        <div className="flex gap-2">
+          {[
+            { value: "MALE", label: "👦 男宝" },
+            { value: "FEMALE", label: "👧 女宝" },
+          ].map((g) => (
+            <label
+              key={g.value}
+              className="flex flex-1 cursor-pointer items-center justify-center gap-1 rounded-lg border border-gray-200 px-3 py-2 text-sm has-[:checked]:border-pink-400 has-[:checked]:bg-pink-50 has-[:checked]:text-pink-600"
+            >
+              <input type="radio" name="gender" value={g.value} required className="sr-only" />
+              {g.label}
+            </label>
+          ))}
+        </div>
+      </div>
       <button
         type="submit"
         disabled={pending}

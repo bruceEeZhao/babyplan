@@ -36,7 +36,9 @@ export default async function BabiesPage() {
               className="flex items-center justify-between rounded-2xl border border-gray-100 bg-white p-4"
             >
               <div>
-                <h3 className="font-medium text-gray-800">{b.nickname}</h3>
+                <h3 className="font-medium text-gray-800">
+                  {b.gender === "MALE" ? "👦" : "👧"} {b.nickname}
+                </h3>
                 <p className="mt-0.5 text-xs text-gray-400">
                   月龄 {monthAge} 个月 · {b.birthDate.toLocaleDateString("zh-CN")} 出生
                 </p>

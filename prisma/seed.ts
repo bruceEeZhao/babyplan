@@ -1682,6 +1682,7 @@ async function main() {
       id: "demo-baby",
       nickname: "小星星",
       birthDate: birth,
+      gender: "FEMALE",
       familyId: family.id,
     },
   });

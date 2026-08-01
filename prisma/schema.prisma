@@ -51,7 +51,13 @@ enum Prop {
 // 里程碑达成状态
 enum MilestoneStatus {
   NOT_MET // 未达成
-  MET // 已达成
+  MET     // 已达成
+}
+
+// 婴儿性别
+enum Gender {
+  MALE   // 男
+  FEMALE // 女
 }
 
 // ============================================================
@@ -95,6 +101,7 @@ model Baby {
   id             String              @id @default(cuid())
   nickname       String
   birthDate      DateTime            @db.Date // 出生日期（用于计算月龄）
+  gender         Gender              @default(FEMALE) // 性别（表单必选，表级默认仅兼容存量数据）
   familyId       String
   family         Family              @relation(fields: [familyId], references: [id])
   checklists     DailyChecklist[]

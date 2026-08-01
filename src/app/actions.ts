@@ -129,13 +129,15 @@ export async function addBaby(formData: FormData): Promise<{ ok: boolean; messag
   if (!parentId) return { ok: false, message: "请先登录" };
   const nickname = String(formData.get("nickname") ?? "").trim();
   const birthDateStr = String(formData.get("birthDate") ?? "").trim();
+  const gender = String(formData.get("gender") ?? "");
   if (!nickname || !birthDateStr) return { ok: false, message: "请填写昵称与出生日期" };
+  if (gender !== "MALE" && gender !== "FEMALE") return { ok: false, message: "请选择性别" };
 
   const me = await prisma.parent.findUnique({ where: { id: parentId } });
   if (!me?.familyId) return { ok: false, message: "请先创建或加入家庭" };
 
   const baby = await prisma.baby.create({
-    data: { nickname, birthDate: new Date(birthDateStr), familyId: me.familyId },
+    data: { nickname, birthDate: new Date(birthDateStr), gender: gender as "MALE" | "FEMALE", familyId: me.familyId },
   });
   const markCount = await initBabyMilestones(baby.id, baby.birthDate);
   revalidatePath("/babies");
