@@ -148,6 +148,7 @@ export default async function TodayPage() {
                         title: c.title,
                         dailyTargetCount: c.dailyTargetCount,
                       }))}
+                      isProtected={item.skillAreasSnapshot.includes("GROSS_MOTOR")}
                     />
                   </div>
                 </div>

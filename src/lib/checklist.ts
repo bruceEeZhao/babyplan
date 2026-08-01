@@ -1,3 +1,4 @@
+import { SkillArea } from "@prisma/client";
 import { prisma } from "./prisma";
 import { localDateKey, dateKeyToDate } from "./date";
 
@@ -86,7 +87,16 @@ export async function generateDailyChecklist(babyId: string): Promise<{ created:
 
   // 加权随机抽取 N 个（权重高的活动被抽中概率大）
   const count = dailyCountForMonthAge(monthAge);
-  const picked = weightedPick(weighted, count);
+  // 大运动每日必练：从池中优先保证至少 1 个大运动活动，其余按加权抽取
+  const grossMotor = weighted.filter((w) => w.activity.skillAreas.includes(SkillArea.GROSS_MOTOR));
+  const rest = weighted.filter((w) => !w.activity.skillAreas.includes(SkillArea.GROSS_MOTOR));
+  let picked: typeof weighted;
+  if (grossMotor.length > 0) {
+    picked = weightedPick(grossMotor, 1);
+    if (count > 1 && rest.length > 0) picked.push(...weightedPick(rest, count - 1));
+  } else {
+    picked = weightedPick(weighted, count);
+  }
 
   // 固化快照
   await prisma.dailyChecklist.create({

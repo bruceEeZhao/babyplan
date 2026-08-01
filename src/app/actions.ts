@@ -74,6 +74,11 @@ export async function replaceItem(itemId: string, activityId: string): Promise<{
   });
   if (!owned) return { ok: false, message: "无权操作该清单" };
 
+  // 大运动每日必练，不可替换
+  if (item.skillAreasSnapshot.includes("GROSS_MOTOR")) {
+    return { ok: false, message: "大运动活动每日必练，不可替换" };
+  }
+
   const activity = await prisma.activity.findUnique({ where: { id: activityId } });
   if (!activity) return { ok: false, message: "活动不存在" };
 

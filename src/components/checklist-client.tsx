@@ -35,15 +35,24 @@ export function ReplacePanel({
   itemId,
   currentTitle,
   candidates,
+  isProtected = false,
 }: {
   itemId: string;
   currentTitle: string;
   candidates: { id: string; title: string; dailyTargetCount: number }[];
+  isProtected?: boolean;
 }) {
   const [state, action, pending] = useActionState<ActionResult | null, FormData>(
     (_prev, formData) => replaceItem(itemId, String(formData.get("activityId"))),
     null
   );
+  if (isProtected) {
+    return (
+      <p className="flex items-center gap-1 text-xs font-medium text-orange-500">
+        <span>💪</span> 大运动每日必练，不可替换
+      </p>
+    );
+  }
   return (
     <form action={action} className="flex flex-wrap items-center gap-2">
       <span className="text-xs text-gray-400">替换「{currentTitle}」为：</span>
