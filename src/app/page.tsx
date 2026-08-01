@@ -3,6 +3,7 @@ import { monthAgeOf } from "@/lib/checklist";
 import { getCurrentBabyId } from "@/lib/current-baby";
 import { requireFamilyContext } from "@/lib/session";
 import { localDateKey, dateKeyToDate } from "@/lib/date";
+import { getCommunicationTips } from "@/lib/communication-tips";
 import { CompleteButton, ReplacePanel, GenerateButton } from "@/components/checklist-client";
 import { ConfirmMilestoneButton } from "@/components/milestone-client";
 
@@ -58,6 +59,9 @@ export default async function TodayPage() {
   const totalCompleted = checklist?.items.reduce((s, i) => s + i.completedCount, 0) ?? 0;
   const totalTarget = checklist?.items.reduce((s, i) => s + i.dailyTargetCountSnapshot, 0) ?? 0;
 
+  // 本月龄交流与玩耍要点（卫健委指南）
+  const tips = getCommunicationTips(monthAge);
+
   return (
     <div className="space-y-6">
       <header className="space-y-1">
@@ -69,6 +73,26 @@ export default async function TodayPage() {
           {checklist ? `已完成 ${totalCompleted}/${totalTarget} 次` : "今日清单未生成"}
         </p>
       </header>
+
+      {tips && (
+        <details open className="group rounded-2xl border border-pink-100 bg-pink-50/50">
+          <summary className="flex cursor-pointer list-none items-center justify-between px-4 py-3 text-sm font-medium text-pink-600">
+            <span>💬 本月龄交流与玩耍要点</span>
+            <span className="text-pink-300 transition group-open:rotate-180">▾</span>
+          </summary>
+          <div className="space-y-3 px-4 pb-4 text-sm text-gray-600">
+            <p>
+              <span className="font-medium text-gray-700">交流：</span>
+              {tips.exchange}
+            </p>
+            <p>
+              <span className="font-medium text-gray-700">玩耍：</span>
+              {tips.play}
+            </p>
+            <p className="text-xs text-gray-400">来源：国家卫生健康委《婴幼儿亲子交流与玩耍要点》</p>
+          </div>
+        </details>
+      )}
 
       {!checklist && (
         <div className="rounded-2xl border border-dashed border-pink-200 bg-white p-6 text-center">
